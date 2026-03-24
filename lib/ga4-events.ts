@@ -41,12 +41,12 @@ export function sendGA4PurchaseEvent({
     payment_type,
     items: items || [
       {
-        item_id: "tabua-titanio",
-        item_name: "Tábua de Titânio TitanChef",
+        item_id: "firmage-dermalux",
+        item_name: "Kit Firmage Dermalux",
         price: value,
         quantity: 1,
-        item_brand: "TitanChef",
-        item_category: "Utensílios de Cozinha",
+        item_brand: "Firmage",
+        item_category: "Dermocosmético",
       },
     ],
     coupon,
@@ -74,12 +74,12 @@ export function sendGA4BeginCheckoutEvent(value: number, items?: PurchaseItem[])
     currency: "BRL",
     items: items || [
       {
-        item_id: "tabua-titanio",
-        item_name: "Tábua de Titânio TitanChef",
+        item_id: "firmage-dermalux",
+        item_name: "Kit Firmage Dermalux",
         price: value,
         quantity: 1,
-        item_brand: "TitanChef",
-        item_category: "Utensílios de Cozinha",
+        item_brand: "Firmage",
+        item_category: "Dermocosmético",
       },
     ],
   })
@@ -99,6 +99,6 @@ export function sendGA4AddPaymentInfoEvent(value: number, payment_type: string) 
 declare global {
   interface Window {
     gtag?: (command: string, eventName: string, params?: Record<string, unknown>) => void
-    dataLayer?: unknown[]
+    dataLayer?: Object[]
   }
 }

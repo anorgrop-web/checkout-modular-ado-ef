@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import type { AddressInfo } from "@/app/page"
+import type { AddressInfo } from "@/app/kit1/page"
 import { sendGAEvent } from "@next/third-parties/google"
 
 interface ShippingAddressFormProps {

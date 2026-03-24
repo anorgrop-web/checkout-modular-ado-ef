@@ -16,7 +16,7 @@ export function SuccessTracker({
   value,
   paymentMethod,
   transactionId,
-  productName = "Tábua de Titânio TitanChef",
+  productName = "Kit Firmage Dermalux",
 }: SuccessTrackerProps) {
   const hasFired = useRef(false)
   const finalTransactionId = transactionId || `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -32,12 +32,12 @@ export function SuccessTracker({
       payment_type: paymentMethod,
       items: [
         {
-          item_id: "tabua-titanio",
+          item_id: "firmage-dermalux",
           item_name: productName,
           price: value,
           quantity: 1,
-          item_brand: "TitanChef",
-          item_category: "Utensílios de Cozinha",
+          item_brand: "Firmage",
+          item_category: "Dermocosmético",
         },
       ],
     })

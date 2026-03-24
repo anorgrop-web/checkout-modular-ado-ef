@@ -47,12 +47,12 @@ export default function PoliticaDePrivacidade() {
           <h3 className="text-lg font-semibold text-gray-900">5. Seus Direitos</h3>
           <p>
             Você pode solicitar acesso, correção ou exclusão de seus dados pessoais a qualquer momento através do e-mail
-            info@titanchefcut.com.
+            contato@firmage.com.br.
           </p>
 
           <h3 className="text-lg font-semibold text-gray-900">6. Contato</h3>
           <p>
-            E-mail: info@titanchefcut.com <br /> 
+            E-mail: contato@firmage.com.br <br /> 
           </p>
         </div>
       </main>

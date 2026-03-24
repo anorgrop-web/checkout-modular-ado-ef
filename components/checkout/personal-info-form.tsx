@@ -2,7 +2,7 @@
 import { User } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { PersonalInfo } from "@/app/page"
+import type { PersonalInfo } from "@/app/kit1/page"
 
 interface PersonalInfoFormProps {
   personalInfo: PersonalInfo
