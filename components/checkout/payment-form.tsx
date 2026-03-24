@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { CreditCard, Lock, Loader2, Check, X, AlertTriangle, ShieldAlert } from "lucide-react"
+import { CreditCard, Lock, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
@@ -77,9 +77,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [detectedBrand, setDetectedBrand] = useState<string | null>(null)
   const [cardNumberError, setCardNumberError] = useState<string | null>(null)
-  const [showPixRecoveryPopup, setShowPixRecoveryPopup] = useState(false)
 
-  const SHOW_ORDER_BUMP = false
 
   const baseTotal = totalAmount
   const pixDiscountAmount = pixDiscountApplied ? baseTotal * discountPercentage : 0
@@ -112,12 +110,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
 
   const selectedInstallment = installmentOptions.find((o) => o.value === parcelas)
 
-  const handleAcceptPixOffer = () => {
-    setPixDiscountApplied(true)
-    setPaymentMethod("pix")
-    setShowPixRecoveryPopup(false)
-    setPaymentError(null)
-  }
+
 
   const handlePixPayment = async () => {
     setIsProcessing(true)
@@ -258,10 +251,12 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
           expirationMonth: expMonth,
           expirationYear: fullYear,
           reuse: false,
+          holderName: cardholderName,
+          holderDocument: personalInfo.cpf?.replace(/\D/g, "") || "",
         })
         .getPaymentToken()
 
-      const paymentToken = paymentTokenResult.payment_token
+      const paymentToken = (paymentTokenResult as { payment_token: string }).payment_token
 
       // Enviar payment_token ao backend
       const response = await fetch("/api/create-payment-intent", {
@@ -295,7 +290,6 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
 
       if (data.error) {
         setPaymentError(data.error)
-        setShowPixRecoveryPopup(true)
       } else if (data.success) {
         const successParams = new URLSearchParams({
           name: personalInfo.nome,
@@ -311,67 +305,15 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
         router.push(`/success?${successParams.toString()}`)
       } else {
         setPaymentError("Pagamento não aprovado")
-        setShowPixRecoveryPopup(true)
       }
     } catch (err) {
       console.error("Erro cartão:", err)
       setPaymentError("Erro ao processar pagamento")
-      setShowPixRecoveryPopup(true)
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const PixRecoveryPopup = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-        <button
-          onClick={() => setShowPixRecoveryPopup(false)}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="h-8 w-8 text-amber-500" />
-          </div>
-        </div>
-
-        <h3 className="text-xl font-bold text-center text-gray-900 mb-2">Ops! Problema Técnico</h3>
-
-        <p className="text-center text-gray-600 mb-3">
-          Estamos enfrentando alguns problemas técnicos com processamentos de pagamentos via cartão de crédito.
-        </p>
-
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <ShieldAlert className="h-5 w-5 text-blue-500 flex-shrink-0" />
-          <p className="text-sm text-blue-700">
-            <strong>Observação:</strong> Nenhum pagamento foi efetuado, não houve nenhuma cobrança no seu cartão.
-          </p>
-        </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <p className="text-center text-green-800 font-medium">
-            Como forma de compensação, estamos oferecendo{" "}
-            <span className="font-bold text-green-600">5% de desconto</span> caso você queira prosseguir com o pagamento
-            via PIX!
-          </p>
-          <p className="text-center text-green-700 font-bold mt-2">
-            Novo valor: R$ {(baseTotal * (1 - discountPercentage)).toFixed(2).replace(".", ",")}
-          </p>
-        </div>
-
-        <button
-          onClick={handleAcceptPixOffer}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          <Check className="h-5 w-5" />
-          QUERO PAGAR VIA PIX COM 5% OFF
-        </button>
-      </div>
-    </div>
-  )
 
   if (!visible) {
     return (
@@ -395,7 +337,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
 
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm">
-      {showPixRecoveryPopup && <PixRecoveryPopup />}
+
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-6">
