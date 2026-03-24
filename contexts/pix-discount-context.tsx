@@ -6,16 +6,17 @@ interface PixDiscountContextType {
   pixDiscountApplied: boolean
   setPixDiscountApplied: (value: boolean) => void
   discountPercentage: number
+  setDiscountPercentage: (value: number) => void
 }
 
 const PixDiscountContext = createContext<PixDiscountContextType | undefined>(undefined)
 
 export function PixDiscountProvider({ children }: { children: ReactNode }) {
   const [pixDiscountApplied, setPixDiscountApplied] = useState(false)
-  const discountPercentage = 0.05 // 5% de desconto
+  const [discountPercentage, setDiscountPercentage] = useState(0.05) // 5% padrão
 
   return (
-    <PixDiscountContext.Provider value={{ pixDiscountApplied, setPixDiscountApplied, discountPercentage }}>
+    <PixDiscountContext.Provider value={{ pixDiscountApplied, setPixDiscountApplied, discountPercentage, setDiscountPercentage }}>
       {children}
     </PixDiscountContext.Provider>
   )

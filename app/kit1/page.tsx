@@ -53,6 +53,7 @@ const PRODUCT = {
   originalPrice: 297.0,
   id: "firmage-kit1",
   ref: "FMG-KIT1",
+  image: "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/Firmage/LP/Oferta%201.jpeg",
 }
 
 export default function Kit1Page() {
@@ -228,6 +229,7 @@ export default function Kit1Page() {
                 productTitle={PRODUCT.title}
                 productPrice={PRODUCT.price}
                 originalPrice={PRODUCT.originalPrice}
+                productImage={PRODUCT.image}
               />
               <TrustBadges />
             </div>

@@ -37,6 +37,7 @@ const PRODUCT = {
   originalPrice: 1194.0,
   id: "firmage-completo",
   ref: "FMG-COMP",
+  image: "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/Firmage/LP/Oferta%203.jpeg",
 }
 
 export default function CompletoPage() {
@@ -137,7 +138,7 @@ export default function CompletoPage() {
               <PaymentForm visible={showPayment} totalAmount={totalAmount} personalInfo={personalInfo} addressInfo={addressInfo} />
             </div>
             <div className="space-y-6">
-              <OrderSummary selectedShipping={selectedShipping} productTitle={PRODUCT.title} productPrice={PRODUCT.price} originalPrice={PRODUCT.originalPrice} />
+              <OrderSummary selectedShipping={selectedShipping} productTitle={PRODUCT.title} productPrice={PRODUCT.price} originalPrice={PRODUCT.originalPrice} productImage={PRODUCT.image} />
               <TrustBadges />
             </div>
           </div>

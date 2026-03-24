@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation"
 import type { PersonalInfo, AddressInfo } from "@/app/kit1/page"
 import { sendGAEvent } from "@next/third-parties/google"
 import { usePixDiscount } from "@/contexts/pix-discount-context"
+import { CardRejectedModal } from "@/components/checkout/card-rejected-modal"
 
 declare global {
   interface Window {
@@ -71,7 +72,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   const router = useRouter()
   const pathname = usePathname()
 
-  const { pixDiscountApplied, setPixDiscountApplied, discountPercentage } = usePixDiscount()
+  const { pixDiscountApplied, setPixDiscountApplied, discountPercentage, setDiscountPercentage } = usePixDiscount()
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix")
   const [cardholderName, setCardholderName] = useState("")
@@ -83,6 +84,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [detectedBrand, setDetectedBrand] = useState<string | null>(null)
   const [cardNumberError, setCardNumberError] = useState<string | null>(null)
+  const [showRejectedModal, setShowRejectedModal] = useState(false)
 
   // Mercado Pago SDK instance
   const mpRef = useRef<any>(null)
@@ -109,6 +111,18 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   const baseTotal = totalAmount
   const pixDiscountAmount = pixDiscountApplied ? baseTotal * discountPercentage : 0
   const finalTotal = baseTotal - pixDiscountAmount
+
+  const handleAcceptPixRecovery = () => {
+    setShowRejectedModal(false)
+    setPaymentError(null)
+
+    // Aplicar desconto de 15%
+    setDiscountPercentage(0.15)
+    setPixDiscountApplied(true)
+
+    // Selecionar PIX como método de pagamento
+    setPaymentMethod("pix")
+  }
 
   const handleCardNumberChange = (value: string) => {
     const masked = maskCardNumber(value)
@@ -301,7 +315,8 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
       const data = await response.json()
 
       if (data.error) {
-        setPaymentError(data.error)
+        // Abrir modal de recuperação ao invés de mostrar erro inline
+        setShowRejectedModal(true)
       } else if (data.success) {
         const successParams = new URLSearchParams({
           name: personalInfo.nome,
@@ -316,7 +331,8 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
         })
         router.push(`/success?${successParams.toString()}`)
       } else {
-        setPaymentError("Pagamento não aprovado")
+        // Abrir modal de recuperação ao invés de mostrar erro inline
+        setShowRejectedModal(true)
       }
     } catch (err) {
       console.error("Erro cartão MP:", err)
@@ -348,6 +364,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   }
 
   return (
+    <>
     <div className="bg-white rounded-lg p-6 shadow-sm">
 
 
@@ -598,5 +615,13 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
         <span>Seus dados estão protegidos com criptografia SSL</span>
       </div>
     </div>
+
+      <CardRejectedModal
+        isOpen={showRejectedModal}
+        onClose={() => setShowRejectedModal(false)}
+        onAcceptPix={handleAcceptPixRecovery}
+        discountPercent={15}
+      />
+    </>
   )
 }

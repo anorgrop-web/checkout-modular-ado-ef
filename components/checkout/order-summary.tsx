@@ -22,7 +22,7 @@ interface OrderSummaryProps {
 export function OrderSummary({
   selectedShipping,
   productTitle = "Kit 1 Firmage - Dermalux",
-  productImage = "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/kat/lp/modal/Kit%20de%20T%C3%A1buas%20de%20Corte%20%282%29.png",
+  productImage = "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/Firmage/LP/Oferta%201.jpeg",
   productPrice = 167.0,
   originalPrice,
 }: OrderSummaryProps) {

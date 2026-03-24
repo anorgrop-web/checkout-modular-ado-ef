@@ -37,6 +37,7 @@ const PRODUCT = {
   originalPrice: 891.0,
   id: "firmage-kit3",
   ref: "FMG-KIT3",
+  image: "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/Firmage/LP/Oferta%202.jpeg",
 }
 
 export default function Kit3Page() {
@@ -148,7 +149,7 @@ export default function Kit3Page() {
               <PaymentForm visible={showPayment} totalAmount={totalAmount} personalInfo={personalInfo} addressInfo={addressInfo} />
             </div>
             <div className="space-y-6">
-              <OrderSummary selectedShipping={selectedShipping} productTitle={PRODUCT.title} productPrice={PRODUCT.price} originalPrice={PRODUCT.originalPrice} />
+              <OrderSummary selectedShipping={selectedShipping} productTitle={PRODUCT.title} productPrice={PRODUCT.price} originalPrice={PRODUCT.originalPrice} productImage={PRODUCT.image} />
               <TrustBadges />
             </div>
           </div>
