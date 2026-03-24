@@ -40,16 +40,16 @@ export async function POST(request: Request) {
 
       // Buscar pedido pelo txid (transaction_id)
       const { data: existingOrder } = await supabase
-        .from("pedidos")
-        .select("id, nome_cliente, email_cliente, endereco_completo, cidade_destino, uf_destino, cep")
+        .from("firmage_pedidos")
+        .select("id, nome_completo, email, endereco, numero, cidade, estado, cep, produto")
         .eq("transaction_id", txid)
         .maybeSingle()
 
       if (existingOrder) {
         // Atualizar status para aprovado
         const { error: updateError } = await supabase
-          .from("pedidos")
-          .update({ status: "aprovado" })
+          .from("firmage_pedidos")
+          .update({ status_pagamento: "aprovado" })
           .eq("transaction_id", txid)
 
         if (updateError) {
@@ -59,28 +59,30 @@ export async function POST(request: Request) {
         }
 
         // Enviar e-mail de confirmação
-        if (existingOrder.email_cliente && existingOrder.nome_cliente) {
-          const address = existingOrder.endereco_completo
+        if (existingOrder.email && existingOrder.nome_completo) {
+          const address = existingOrder.endereco
             ? {
-                street: existingOrder.endereco_completo,
-                city: existingOrder.cidade_destino || "",
-                state: existingOrder.uf_destino || "",
+                street: `${existingOrder.endereco}, ${existingOrder.numero || ""}`,
+                city: existingOrder.cidade || "",
+                state: existingOrder.estado || "",
                 cep: existingOrder.cep || "",
               }
             : undefined
 
           const emailResult = await sendOrderConfirmation({
-            to: existingOrder.email_cliente,
-            customerName: existingOrder.nome_cliente,
+            to: existingOrder.email,
+            customerName: existingOrder.nome_completo,
             orderId: txid.slice(-8).toUpperCase(),
             amount: typeof valor === "number" ? valor : parseFloat(valor || "0"),
             paymentMethod: "pix",
-            products: [],
+            products: existingOrder.produto
+              ? [{ name: existingOrder.produto, quantity: 1, price: parseFloat(valor || "0") }]
+              : [],
             address,
           })
 
           if (emailResult.success) {
-            console.log("E-mail enviado para", existingOrder.email_cliente)
+            console.log("E-mail enviado para", existingOrder.email)
           } else {
             console.error("Falha ao enviar e-mail:", emailResult.error)
           }
