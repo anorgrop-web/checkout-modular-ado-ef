@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { createPixCharge, createCardCharge } from "@/lib/efi-service"
+import { createPixCharge } from "@/lib/efi-service"
+import { createMPCardCharge } from "@/lib/mp-service"
 import { getProductForRoute } from "@/lib/product-catalog"
 import { sendOrderConfirmation } from "@/lib/email"
 
@@ -18,9 +19,6 @@ export async function POST(request: Request) {
       customer_phone,
       address,
       offer_id,
-      // Cartão-specific (Efí)
-      payment_token,
-      installments,
       // Rota de origem para catálogo de produtos
       checkout_route,
       // Frete
@@ -116,33 +114,31 @@ export async function POST(request: Request) {
         },
       })
     } else {
-      // Cartão de crédito via Efí
-      if (!payment_token) {
+      // Cartão de crédito via Mercado Pago
+      if (!body.mp_card_token) {
         return NextResponse.json(
-          { error: "payment_token é obrigatório para pagamento com cartão" },
+          { error: "Token do cartão é obrigatório" },
           { status: 400 }
         )
       }
 
-      const result = await createCardCharge({
+      // Separar nome em first/last
+      const nameParts = (customer_name || "").trim().split(" ")
+      const firstName = nameParts[0] || ""
+      const lastName = nameParts.slice(1).join(" ") || firstName
+
+      const result = await createMPCardCharge({
         amount,
-        paymentToken: payment_token,
-        installments: installments || 1,
-        productName: catalogEntry.product.descricao,
-        customer: {
-          name: customer_name || "",
+        token: body.mp_card_token,
+        installments: body.installments || 1,
+        paymentMethodId: body.mp_payment_method_id || "visa",
+        issuer_id: body.mp_issuer_id,
+        description: `Pedido ${catalogEntry.product.descricao}`,
+        payer: {
           email: customer_email || "",
+          firstName,
+          lastName,
           cpf: (customer_cpf || "").replace(/\D/g, ""),
-          birth: "1990-01-01",
-          phone: customer_phone || "",
-        },
-        billingAddress: {
-          street: address?.street || "",
-          number: address?.number || "",
-          neighborhood: address?.district || "",
-          zipcode: address?.cep || "",
-          city: address?.city || "",
-          state: address?.state || "",
         },
       })
 
@@ -154,7 +150,7 @@ export async function POST(request: Request) {
       }
 
       // Gravar pedido no Supabase
-      const txId = result.chargeId || ""
+      const txId = result.paymentId || ""
       const codigoRastreio = txId.length > 0
         ? txId.slice(-8).toUpperCase()
         : crypto.randomUUID().substring(0, 8).toUpperCase()
@@ -191,7 +187,7 @@ export async function POST(request: Request) {
         if (dbError) {
           console.error("SUPABASE INSERT ERROR (CARD):", dbError.message)
         } else {
-          console.log("Pedido CARD salvo. chargeId:", txId)
+          console.log("Pedido CARD salvo. paymentId:", txId)
         }
       } catch (dbErr) {
         console.error("Exceção ao salvar pedido (cartão):", dbErr)
@@ -232,7 +228,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        transactionId: result.chargeId,
+        transactionId: result.paymentId,
         status: result.status,
       })
     }

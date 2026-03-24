@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { CreditCard, Lock, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
@@ -8,6 +8,12 @@ import { useRouter, usePathname } from "next/navigation"
 import type { PersonalInfo, AddressInfo } from "@/app/kit1/page"
 import { sendGAEvent } from "@next/third-parties/google"
 import { usePixDiscount } from "@/contexts/pix-discount-context"
+
+declare global {
+  interface Window {
+    MercadoPago: any
+  }
+}
 
 const cardBrandLogos: Record<string, string> = {
   visa: "https://mk6n6kinhajxg1fp.public.blob.vercel-storage.com/Comum%20/card-visa.svg",
@@ -78,6 +84,27 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   const [detectedBrand, setDetectedBrand] = useState<string | null>(null)
   const [cardNumberError, setCardNumberError] = useState<string | null>(null)
 
+  // Mercado Pago SDK instance
+  const mpRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.MercadoPago) {
+      const script = document.createElement("script")
+      script.src = "https://sdk.mercadopago.com/js/v2"
+      script.onload = () => {
+        mpRef.current = new window.MercadoPago(
+          process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || "",
+          { locale: "pt-BR" }
+        )
+      }
+      document.head.appendChild(script)
+    } else if (typeof window !== "undefined" && window.MercadoPago) {
+      mpRef.current = new window.MercadoPago(
+        process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || "",
+        { locale: "pt-BR" }
+      )
+    }
+  }, [])
 
   const baseTotal = totalAmount
   const pixDiscountAmount = pixDiscountApplied ? baseTotal * discountPercentage : 0
@@ -109,8 +136,6 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
   }, [finalTotal])
 
   const selectedInstallment = installmentOptions.find((o) => o.value === parcelas)
-
-
 
   const handlePixPayment = async () => {
     setIsProcessing(true)
@@ -194,22 +219,10 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
 
   const handleCardPayment = async () => {
     const rawCardNumber = cardNumber.replace(/\D/g, "")
-    if (rawCardNumber.length < 13) {
-      setPaymentError("Número do cartão inválido")
-      return
-    }
-    if (!cardExpiry || cardExpiry.length < 5) {
-      setPaymentError("Data de validade inválida")
-      return
-    }
-    if (!cardCvv || cardCvv.length < 3) {
-      setPaymentError("CVV inválido")
-      return
-    }
-    if (!cardholderName.trim()) {
-      setPaymentError("Nome do titular é obrigatório")
-      return
-    }
+    if (rawCardNumber.length < 13) { setPaymentError("Número do cartão inválido"); return }
+    if (!cardExpiry || cardExpiry.length < 5) { setPaymentError("Data de validade inválida"); return }
+    if (!cardCvv || cardCvv.length < 3) { setPaymentError("CVV inválido"); return }
+    if (!cardholderName.trim()) { setPaymentError("Nome do titular é obrigatório"); return }
 
     setIsProcessing(true)
     setPaymentError(null)
@@ -221,51 +234,49 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
     })
 
     try {
-      // Gerar payment_token via Efí payment-token-efi
-      const EfiPayModule = await import("payment-token-efi")
-      const EfiPayToken = EfiPayModule.default || EfiPayModule
+      if (!mpRef.current) {
+        setPaymentError("SDK de pagamento não carregado. Recarregue a página.")
+        setIsProcessing(false)
+        return
+      }
 
-      const accountId = process.env.NEXT_PUBLIC_EFI_ACCOUNT_IDENTIFIER || ""
-      const isSandbox = process.env.NEXT_PUBLIC_EFI_SANDBOX === "true"
+      const [expMonth, expYear] = cardExpiry.split("/")
 
-      // Mapear bandeira para o formato esperado pela Efí
-      const brandMap: Record<string, string> = {
+      // Gerar card token via SDK do Mercado Pago
+      const cardTokenResult = await mpRef.current.createCardToken({
+        cardNumber: rawCardNumber,
+        cardholderName: cardholderName,
+        cardExpirationMonth: expMonth,
+        cardExpirationYear: `20${expYear}`,
+        securityCode: cardCvv,
+        identificationType: "CPF",
+        identificationNumber: personalInfo.cpf?.replace(/\D/g, "") || "",
+      })
+
+      if (!cardTokenResult || !cardTokenResult.id) {
+        setPaymentError("Erro ao processar dados do cartão")
+        setIsProcessing(false)
+        return
+      }
+
+      // Mapear bandeira para payment_method_id do Mercado Pago
+      const brandToMP: Record<string, string> = {
         visa: "visa",
-        mastercard: "mastercard",
+        mastercard: "master",
         amex: "amex",
         elo: "elo",
       }
-      const efiBrand = brandMap[detectedBrand || ""] || "visa"
+      const mpPaymentMethodId = brandToMP[detectedBrand || ""] || "visa"
 
-      // Converter validade MM/AA para mês e ano completo
-      const [expMonth, expYear] = cardExpiry.split("/")
-      const fullYear = `20${expYear}`
-
-      const paymentTokenResult = await EfiPayToken.CreditCard
-        .setAccount(accountId)
-        .setEnvironment(isSandbox ? "sandbox" : "production")
-        .setCreditCardData({
-          brand: efiBrand,
-          number: rawCardNumber,
-          cvv: cardCvv,
-          expirationMonth: expMonth,
-          expirationYear: fullYear,
-          reuse: false,
-          holderName: cardholderName,
-          holderDocument: personalInfo.cpf?.replace(/\D/g, "") || "",
-        })
-        .getPaymentToken()
-
-      const paymentToken = (paymentTokenResult as { payment_token: string }).payment_token
-
-      // Enviar payment_token ao backend
+      // Enviar ao backend
       const response = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: finalTotal,
           paymentMethodType: "card",
-          payment_token: paymentToken,
+          mp_card_token: cardTokenResult.id,
+          mp_payment_method_id: mpPaymentMethodId,
           installments: parseInt(parcelas),
           customer_name: personalInfo.nome,
           customer_email: personalInfo.email,
@@ -274,6 +285,7 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
           address: {
             street: addressInfo.endereco,
             number: addressInfo.numero,
+            complement: addressInfo.complemento,
             district: addressInfo.bairro,
             city: addressInfo.cidade,
             state: addressInfo.estado,
@@ -307,8 +319,8 @@ export function PaymentForm({ visible, totalAmount, personalInfo, addressInfo, s
         setPaymentError("Pagamento não aprovado")
       }
     } catch (err) {
-      console.error("Erro cartão:", err)
-      setPaymentError("Erro ao processar pagamento")
+      console.error("Erro cartão MP:", err)
+      setPaymentError("Erro ao processar pagamento com cartão")
     } finally {
       setIsProcessing(false)
     }
