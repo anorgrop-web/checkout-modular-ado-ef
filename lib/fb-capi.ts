@@ -1,11 +1,11 @@
 import { FB_PIXEL_ID } from "./fpixel"
 import crypto from "crypto"
 
-// Facebook Conversions API Access Token
-export const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN || ""
-
-// All pixel IDs to send server-side events to
-const ALL_PIXEL_IDS = [FB_PIXEL_ID, "736939935257219"]
+// Mapeamento de pixel ID → variável de ambiente do token
+const PIXEL_TOKENS: Array<{ pixelId: string; token: string }> = [
+  { pixelId: FB_PIXEL_ID, token: process.env.FB_ACCESS_TOKEN || "" },
+  { pixelId: "736939935257219", token: process.env.FB_ACCESS_TOKEN_2 || "" },
+]
 
 function hashData(data: string): string {
   return crypto.createHash("sha256").update(data.toLowerCase().trim()).digest("hex")
@@ -49,9 +49,10 @@ export async function sendServerEvent({
   userData,
   customData,
 }: ServerEventData): Promise<{ success: boolean; error?: string }> {
-  if (!FB_ACCESS_TOKEN) {
-    console.warn("[FB CAPI] Access token not configured")
-    return { success: false, error: "Access token not configured" }
+  const hasAnyToken = PIXEL_TOKENS.some(p => p.token)
+  if (!hasAnyToken) {
+    console.warn("[FB CAPI] No access tokens configured")
+    return { success: false, error: "No access tokens configured" }
   }
 
   const eventTime = Math.floor(Date.now() / 1000)
@@ -97,10 +98,10 @@ export async function sendServerEvent({
 
   // Send event to all pixels in parallel
   const results = await Promise.allSettled(
-    ALL_PIXEL_IDS.map(async (pixelId) => {
+    PIXEL_TOKENS.filter(p => p.token).map(async ({ pixelId, token }) => {
       try {
         const response = await fetch(
-          `https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${FB_ACCESS_TOKEN}`,
+          `https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${token}`,
           {
             method: "POST",
             headers: {
