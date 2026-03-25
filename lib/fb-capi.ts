@@ -4,6 +4,9 @@ import crypto from "crypto"
 // Facebook Conversions API Access Token
 export const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN || ""
 
+// All pixel IDs to send server-side events to
+const ALL_PIXEL_IDS = [FB_PIXEL_ID, "736939935257219"]
+
 function hashData(data: string): string {
   return crypto.createHash("sha256").update(data.toLowerCase().trim()).digest("hex")
 }
@@ -92,32 +95,52 @@ export async function sendServerEvent({
     custom_data: customData,
   }
 
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/v18.0/${FB_PIXEL_ID}/events?access_token=${FB_ACCESS_TOKEN}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data: [eventData],
-        }),
-      },
-    )
+  // Send event to all pixels in parallel
+  const results = await Promise.allSettled(
+    ALL_PIXEL_IDS.map(async (pixelId) => {
+      try {
+        const response = await fetch(
+          `https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${FB_ACCESS_TOKEN}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              data: [eventData],
+            }),
+          },
+        )
 
-    const result = await response.json()
+        const result = await response.json()
 
-    if (!response.ok) {
-      console.error("[FB CAPI] Error:", JSON.stringify(result))
-      return { success: false, error: result.error?.message || "Unknown error" }
-    }
+        if (!response.ok) {
+          console.error(`[FB CAPI] Error for pixel ${pixelId}:`, JSON.stringify(result))
+          return { pixelId, success: false, error: result.error?.message || "Unknown error" }
+        }
 
-    console.log("[FB CAPI] Event sent successfully:", eventName, eventID)
+        console.log(`[FB CAPI] Event sent successfully to pixel ${pixelId}:`, eventName, eventID)
+        return { pixelId, success: true }
+      } catch (error) {
+        console.error(`[FB CAPI] Request failed for pixel ${pixelId}:`, error)
+        return { pixelId, success: false, error: String(error) }
+      }
+    }),
+  )
+
+  // Return success if at least one pixel received the event
+  const anySuccess = results.some(
+    (r) => r.status === "fulfilled" && r.value.success,
+  )
+
+  if (anySuccess) {
     return { success: true }
-  } catch (error) {
-    console.error("[FB CAPI] Request failed:", error)
-    return { success: false, error: String(error) }
+  }
+
+  const firstError = results.find((r) => r.status === "fulfilled" && !r.value.success)
+  return {
+    success: false,
+    error: firstError?.status === "fulfilled" ? firstError.value.error : "All requests failed",
   }
 }
 
